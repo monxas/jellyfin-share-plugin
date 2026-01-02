@@ -119,7 +119,8 @@ jobs:
             {
               "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
               "name": "Jellyfin Share",
-              "description": "Create temporary, shareable links for media items",
+              "overview": "Create temporary, shareable links for media items",
+              "description": "A plugin that adds a Share button to movie and episode detail pages, allowing you to create temporary, password-protected shareable links for your media content.",
               "owner": "monxas",
               "category": "General",
               "versions": [
@@ -135,6 +136,8 @@ jobs:
             }
           ]
           EOF
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' manifest.json
 
       - name: Commit manifest
         run: |
