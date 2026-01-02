@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.0.4",
+        "changelog": "See https://github.com/monxas/jellyfin-share-plugin/releases/tag/v1.0.4",
+        "targetAbi": "10.10.0.0",
+        "sourceUrl": "https://github.com/monxas/jellyfin-share-plugin/releases/download/v1.0.4/jellyfin-plugin-share-1.0.4.zip",
+        "checksum": "218883392bfd5a417daa1b4122e76d5b",
+        "timestamp": "2026-01-02T14:16:32Z"
+      },
+      {
         "version": "1.0.3",
         "changelog": "Fix config loading - use native fetch with auth headers",
         "targetAbi": "10.10.0.0",
