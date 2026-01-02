@@ -26,62 +26,96 @@
     // Create share dialog
     function showShareDialog(itemId, itemName) {
         const html = `
-            <div class="formDialogContent scrollY" style="padding: 2em;">
-                <h2 style="margin-top: 0;">Share "${itemName}"</h2>
+            <div class="formDialogHeader">
+                <button is="paper-icon-button-light" class="btnCancel autoSize" tabindex="-1" type="button">
+                    <span class="material-icons arrow_back" aria-hidden="true"></span>
+                </button>
+                <h3 class="formDialogHeaderTitle">Share</h3>
+            </div>
 
-                <div class="inputContainer">
-                    <label class="inputLabel" for="shareExpiry">Expires in</label>
-                    <select id="shareExpiry" is="emby-select" class="emby-select-withcolor">
-                        <option value="60">1 hour</option>
-                        <option value="360">6 hours</option>
-                        <option value="720">12 hours</option>
-                        <option value="1440" selected>24 hours</option>
-                        <option value="4320">3 days</option>
-                        <option value="10080">7 days</option>
-                    </select>
-                </div>
+            <div class="formDialogContent scrollY" style="padding-top: 1em;">
+                <div class="dialogContentInner" style="max-width: 400px; margin: 0 auto;">
 
-                <div class="inputContainer">
-                    <label class="inputLabel" for="sharePassword">Password (optional)</label>
-                    <input type="password" id="sharePassword" is="emby-input" class="emby-input" />
-                </div>
+                    <p style="margin: 0 0 1.5em 0; opacity: 0.8;">Create a shareable link for <strong>${itemName}</strong></p>
 
-                <div class="inputContainer">
-                    <label class="inputLabel" for="shareMaxPlays">Max plays (0 = unlimited)</label>
-                    <input type="number" id="shareMaxPlays" is="emby-input" class="emby-input" value="0" min="0" />
-                </div>
+                    <div class="selectContainer">
+                        <select id="shareExpiry" is="emby-select" label="Expires in">
+                            <option value="60">1 hour</option>
+                            <option value="360">6 hours</option>
+                            <option value="720">12 hours</option>
+                            <option value="1440" selected>24 hours</option>
+                            <option value="4320">3 days</option>
+                            <option value="10080">7 days</option>
+                            <option value="43200">30 days</option>
+                        </select>
+                    </div>
 
-                <div class="inputContainer">
-                    <label class="inputLabel" for="shareMaxViewers">Max concurrent viewers (0 = unlimited)</label>
-                    <input type="number" id="shareMaxViewers" is="emby-input" class="emby-input" value="0" min="0" />
-                </div>
+                    <div class="inputContainer">
+                        <input type="password" id="sharePassword" is="emby-input" label="Password (optional)" />
+                        <div class="fieldDescription">Leave empty for no password protection</div>
+                    </div>
 
-                <div id="shareResult" style="display: none; margin-top: 1em; padding: 1em; background: rgba(0,200,100,0.1); border-radius: 8px;">
-                    <p style="margin: 0 0 0.5em 0; font-weight: bold;">Share link created!</p>
-                    <input type="text" id="shareUrl" readonly style="width: 100%; padding: 0.5em; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: inherit;" />
-                    <button id="copyShareUrl" is="emby-button" class="raised" style="margin-top: 0.5em;">
-                        Copy Link
-                    </button>
-                </div>
+                    <div class="inputContainer">
+                        <input type="number" id="shareMaxPlays" is="emby-input" label="Max plays" value="0" min="0" />
+                        <div class="fieldDescription">0 = unlimited</div>
+                    </div>
 
-                <div id="shareError" style="display: none; margin-top: 1em; padding: 1em; background: rgba(200,50,50,0.1); border-radius: 8px; color: #ff6b6b;">
-                </div>
+                    <div class="inputContainer">
+                        <input type="number" id="shareMaxViewers" is="emby-input" label="Max concurrent viewers" value="0" min="0" />
+                        <div class="fieldDescription">0 = unlimited</div>
+                    </div>
 
-                <div class="formDialogFooter" style="margin-top: 2em;">
-                    <button id="btnCreateShare" is="emby-button" type="button" class="raised button-submit block">
-                        Create Share Link
-                    </button>
+                    <div id="shareResult" style="display: none; margin: 1.5em 0; padding: 1em; background: rgba(82, 196, 26, 0.15); border: 1px solid rgba(82, 196, 26, 0.3); border-radius: 4px;">
+                        <div style="display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.75em;">
+                            <span class="material-icons" style="color: #52c41a;">check_circle</span>
+                            <strong>Share link created!</strong>
+                        </div>
+                        <div style="display: flex; gap: 0.5em;">
+                            <input type="text" id="shareUrl" readonly style="flex: 1; padding: 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: inherit; font-size: 0.9em;" />
+                            <button id="copyShareUrl" is="emby-button" class="raised" style="white-space: nowrap;">
+                                <span class="material-icons" style="font-size: 1.2em;">content_copy</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="shareError" style="display: none; margin: 1.5em 0; padding: 1em; background: rgba(255, 77, 79, 0.15); border: 1px solid rgba(255, 77, 79, 0.3); border-radius: 4px; color: #ff6b6b;">
+                    </div>
+
+                    <div class="formDialogFooter" style="margin-top: 1.5em; padding-top: 1em;">
+                        <button id="btnCreateShare" is="emby-button" type="button" class="raised button-submit block">
+                            <span class="material-icons" style="margin-right: 0.3em;">share</span>
+                            Create Share Link
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
 
         const dlg = document.createElement('dialog');
-        dlg.setAttribute('is', 'emby-dialog');
-        dlg.classList.add('formDialog');
+        dlg.classList.add('formDialog', 'focuscontainer');
+        dlg.style.cssText = 'max-width: 500px; width: 90%; border: none; border-radius: 8px; padding: 0; background: #1a1a1a;';
         dlg.innerHTML = html;
-        dlg.style.maxWidth = '500px';
 
         document.body.appendChild(dlg);
+
+        // Handle close button
+        dlg.querySelector('.btnCancel').addEventListener('click', () => {
+            dlg.close();
+        });
+
+        // Handle backdrop click to close
+        dlg.addEventListener('click', (e) => {
+            if (e.target === dlg) {
+                dlg.close();
+            }
+        });
+
+        // Handle escape key
+        dlg.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                dlg.close();
+            }
+        });
 
         // Handle close
         dlg.addEventListener('close', () => {
