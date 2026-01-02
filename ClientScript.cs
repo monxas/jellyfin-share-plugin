@@ -11,7 +11,7 @@ namespace Jellyfin.Plugin.Share;
 [Route("plugins/share")]
 public class ClientScriptController : ControllerBase
 {
-    private static string GetVersion() =>
+    private static string PluginVersion =>
         Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
 
     /// <summary>
@@ -22,7 +22,7 @@ public class ClientScriptController : ControllerBase
     [AllowAnonymous]
     public ActionResult GetVersion()
     {
-        return Ok(new { version = GetVersion() });
+        return Ok(new { version = PluginVersion });
     }
 
     /// <summary>
@@ -34,7 +34,7 @@ public class ClientScriptController : ControllerBase
     [Produces("application/javascript")]
     public ActionResult GetLoader()
     {
-        var version = GetVersion();
+        var version = PluginVersion;
         var loader = $"import('/plugins/share/client.js?v={version}');";
 
         // Loader should not be cached so it always gets the current version
@@ -65,7 +65,7 @@ public class ClientScriptController : ControllerBase
         using var reader = new StreamReader(stream);
         var script = reader.ReadToEnd();
 
-        var version = GetVersion();
+        var version = PluginVersion;
 
         // Allow caching with version-based ETag
         // Browser will cache, but revalidate using ETag
