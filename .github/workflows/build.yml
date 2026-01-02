@@ -114,7 +114,21 @@ jobs:
 
       - name: Update manifest.json
         run: |
-          cat > manifest.json << EOF
+          NEW_VERSION='{
+            "version": "${{ steps.version.outputs.VERSION }}",
+            "changelog": "See https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.VERSION }}",
+            "targetAbi": "10.10.0.0",
+            "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip",
+            "checksum": "${{ steps.checksum.outputs.CHECKSUM }}",
+            "timestamp": "${{ steps.checksum.outputs.TIMESTAMP }}"
+          }'
+
+          if [ -f manifest.json ]; then
+            # Add new version at the beginning of versions array
+            jq --argjson newver "$NEW_VERSION" '.[0].versions = [$newver] + .[0].versions' manifest.json > manifest.tmp && mv manifest.tmp manifest.json
+          else
+            # Create new manifest
+            cat > manifest.json << EOF
           [
             {
               "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -123,21 +137,12 @@ jobs:
               "description": "A plugin that adds a Share button to movie and episode detail pages, allowing you to create temporary, password-protected shareable links for your media content.",
               "owner": "monxas",
               "category": "General",
-              "versions": [
-                {
-                  "version": "${{ steps.version.outputs.VERSION }}",
-                  "changelog": "See https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.VERSION }}",
-                  "targetAbi": "10.10.0.0",
-                  "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip",
-                  "checksum": "${{ steps.checksum.outputs.CHECKSUM }}",
-                  "timestamp": "${{ steps.checksum.outputs.TIMESTAMP }}"
-                }
-              ]
+              "versions": [$NEW_VERSION]
             }
           ]
           EOF
-          # Remove leading whitespace from heredoc
-          sed -i 's/^          //' manifest.json
+            sed -i 's/^          //' manifest.json
+          fi
 
       - name: Commit manifest
         run: |
