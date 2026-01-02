@@ -161,7 +161,7 @@
             const maxViewers = parseInt(dlg.querySelector('#shareMaxViewers').value) || null;
 
             try {
-                const response = await ApiClient.fetch({
+                const response = await ApiClient.ajax({
                     url: ApiClient.getUrl('plugins/share/create'),
                     type: 'POST',
                     contentType: 'application/json',
@@ -171,11 +171,16 @@
                         password: password,
                         maxTotalPlays: maxPlays,
                         maxConcurrentViewers: maxViewers
-                    })
+                    }),
+                    dataType: 'json'
                 });
+
+                console.log('Jellyfin Share: Create response:', response);
 
                 // Check both cases - C# uses PascalCase, JS typically uses camelCase
                 const publicUrl = response.PublicUrl || response.publicUrl;
+                console.log('Jellyfin Share: PublicUrl:', publicUrl);
+
                 if (publicUrl) {
                     dlg.querySelector('#shareUrl').value = publicUrl;
                     resultDiv.style.display = 'block';
