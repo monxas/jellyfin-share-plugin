@@ -9,22 +9,13 @@
         try {
             const url = ApiClient.getUrl('plugins/share/config');
             console.log('Jellyfin Share: Fetching config from', url);
+            console.log('Jellyfin Share: Access token exists:', !!ApiClient.accessToken());
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `MediaBrowser Token="${ApiClient.accessToken()}"`,
-                    'X-Emby-Token': ApiClient.accessToken()
-                }
-            });
+            // Use Jellyfin's built-in fetch which handles auth
+            const response = await ApiClient.getJSON(url);
+            console.log('Jellyfin Share: Config response', response);
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            pluginConfig = await response.json();
-            console.log('Jellyfin Share: Config response', pluginConfig);
-
+            pluginConfig = response;
             return pluginConfig.Configured === true;
         } catch (e) {
             console.error('Jellyfin Share: Failed to load config', e);
