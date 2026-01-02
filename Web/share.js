@@ -174,13 +174,15 @@
                     })
                 });
 
-                if (response.publicUrl) {
-                    dlg.querySelector('#shareUrl').value = response.publicUrl;
+                // Check both cases - C# uses PascalCase, JS typically uses camelCase
+                const publicUrl = response.PublicUrl || response.publicUrl;
+                if (publicUrl) {
+                    dlg.querySelector('#shareUrl').value = publicUrl;
                     resultDiv.style.display = 'block';
                     btn.textContent = 'Create Another';
                     btn.disabled = false;
                 } else {
-                    throw new Error(response.error || 'Unknown error');
+                    throw new Error(response.Error || response.error || 'Unknown error');
                 }
             } catch (e) {
                 errorDiv.textContent = e.message || 'Failed to create share';
