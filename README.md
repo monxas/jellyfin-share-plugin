@@ -5,20 +5,20 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 ## Requirements
 
 - Jellyfin 10.10 or later
-- [Jellyfin Share Backend](https://github.com/yourusername/jellyfin-share) running and configured
+- [Jellyfin Share Backend](https://github.com/monxas/jellyfin-share-backend) running and configured
 
 ## Installation
 
 ### From Repository (Recommended)
 
 1. Go to **Dashboard → Plugins → Repositories**
-2. Add repository: `https://raw.githubusercontent.com/yourusername/jellyfin-share-plugin/main/manifest.json`
+2. Add repository: `https://raw.githubusercontent.com/monxas/jellyfin-share-plugin/main/manifest.json`
 3. Go to **Catalog** and install "Jellyfin Share"
 4. Restart Jellyfin
 
 ### Manual Installation
 
-1. Download the latest release from [Releases](https://github.com/yourusername/jellyfin-share-plugin/releases)
+1. Download the latest release from [Releases](https://github.com/monxas/jellyfin-share-plugin/releases)
 2. Extract `Jellyfin.Plugin.Share.dll` to your Jellyfin plugins directory:
    - Linux: `/var/lib/jellyfin/plugins/JellyfinShare/`
    - Docker: `/config/plugins/JellyfinShare/`
@@ -70,7 +70,7 @@ The plugin exposes these endpoints (authenticated):
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/jellyfin-share-plugin.git
+git clone https://github.com/monxas/jellyfin-share-plugin.git
 cd jellyfin-share-plugin
 
 # Build
@@ -105,4 +105,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Related
 
-- [Jellyfin Share Backend](https://github.com/yourusername/jellyfin-share) - The backend server that handles share links
+- [Jellyfin Share Backend](https://github.com/monxas/jellyfin-share-backend) - The backend server that handles share links
