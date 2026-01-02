@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.Share;
@@ -10,11 +11,45 @@ namespace Jellyfin.Plugin.Share;
 [Route("plugins/share")]
 public class ClientScriptController : ControllerBase
 {
+    private static string GetVersion() =>
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0";
+
+    /// <summary>
+    /// Gets the plugin version (public, no auth required).
+    /// </summary>
+    /// <returns>Version string.</returns>
+    [HttpGet("version")]
+    [AllowAnonymous]
+    public ActionResult GetVersion()
+    {
+        return Ok(new { version = GetVersion() });
+    }
+
+    /// <summary>
+    /// Gets a loader script that handles cache busting (public, no auth required).
+    /// </summary>
+    /// <returns>JavaScript loader.</returns>
+    [HttpGet("loader.js")]
+    [AllowAnonymous]
+    [Produces("application/javascript")]
+    public ActionResult GetLoader()
+    {
+        var version = GetVersion();
+        var loader = $"import('/plugins/share/client.js?v={version}');";
+
+        // Loader should not be cached so it always gets the current version
+        Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        Response.Headers["Pragma"] = "no-cache";
+
+        return Content(loader, "application/javascript");
+    }
+
     /// <summary>
     /// Gets the client-side JavaScript.
     /// </summary>
     /// <returns>JavaScript content.</returns>
     [HttpGet("client.js")]
+    [AllowAnonymous]
     [Produces("application/javascript")]
     public ActionResult GetClientScript()
     {
@@ -30,13 +65,11 @@ public class ClientScriptController : ControllerBase
         using var reader = new StreamReader(stream);
         var script = reader.ReadToEnd();
 
-        // Prevent caching - especially important for Cloudflare
-        Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
-        Response.Headers["Pragma"] = "no-cache";
-        Response.Headers["Expires"] = "0";
+        var version = GetVersion();
 
-        // Add version as ETag for cache busting
-        var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
+        // Allow caching with version-based ETag
+        // Browser will cache, but revalidate using ETag
+        Response.Headers["Cache-Control"] = "public, max-age=86400"; // Cache for 1 day
         Response.Headers["ETag"] = $"\"{version}\"";
 
         return Content(script, "application/javascript");
