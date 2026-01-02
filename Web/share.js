@@ -146,33 +146,43 @@
 
     // Add share button to item details
     function addShareButton() {
-        // Wait for the detail page to load
-        const detailSection = document.querySelector('.detailPagePrimaryContainer');
-        if (!detailSection) return;
-
         // Check if button already exists
         if (document.querySelector('.btnShare')) return;
 
-        // Find the buttons container
-        const btnContainer = document.querySelector('.mainDetailButtons');
-        if (!btnContainer) return;
+        // Find the buttons container - try multiple selectors for different Jellyfin versions
+        const btnContainer = document.querySelector('.mainDetailButtons') ||
+                            document.querySelector('.detailButtons') ||
+                            document.querySelector('.itemDetailButtons');
+        if (!btnContainer) {
+            console.log('Jellyfin Share: Button container not found');
+            return;
+        }
 
         // Get item info from page
         const itemId = getItemIdFromPage();
-        if (!itemId) return;
+        if (!itemId) {
+            console.log('Jellyfin Share: Item ID not found');
+            return;
+        }
 
         // Get item name
-        const itemName = document.querySelector('.itemName')?.textContent || 'this item';
+        const itemName = document.querySelector('.itemName')?.textContent ||
+                        document.querySelector('h1')?.textContent ||
+                        'this item';
 
-        // Create share button
+        console.log('Jellyfin Share: Adding button for', itemName, itemId);
+
+        // Create share button matching Jellyfin's style
         const shareBtn = document.createElement('button');
         shareBtn.setAttribute('is', 'emby-button');
-        shareBtn.classList.add('button-flat', 'btnShare');
+        shareBtn.setAttribute('type', 'button');
+        shareBtn.classList.add('button-flat', 'btnShare', 'detailButton', 'emby-button');
+        shareBtn.setAttribute('title', 'Share');
         shareBtn.innerHTML = `
-            <span class="material-icons" style="margin-right: 0.3em;">share</span>
-            <span>Share</span>
+            <div class="detailButton-content">
+                <span class="material-icons detailButton-icon share" aria-hidden="true"></span>
+            </div>
         `;
-        shareBtn.style.cssText = 'display: inline-flex; align-items: center;';
 
         shareBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -180,7 +190,15 @@
             showShareDialog(itemId, itemName);
         });
 
-        btnContainer.appendChild(shareBtn);
+        // Insert before the "More" button if it exists, otherwise append
+        const moreBtn = btnContainer.querySelector('.btnMoreCommands');
+        if (moreBtn) {
+            btnContainer.insertBefore(shareBtn, moreBtn);
+        } else {
+            btnContainer.appendChild(shareBtn);
+        }
+
+        console.log('Jellyfin Share: Button added successfully');
     }
 
     // Extract item ID from current page
@@ -200,23 +218,32 @@
 
     // Check if we're on an item detail page
     function isDetailPage() {
-        return window.location.hash.includes('item?') ||
-               window.location.hash.includes('details?') ||
-               window.location.href.includes('/item');
+        const hash = window.location.hash || '';
+        const path = window.location.pathname || '';
+        return hash.includes('item?') ||
+               hash.includes('details?') ||
+               hash.includes('id=') ||
+               path.includes('/details') ||
+               path.includes('/item') ||
+               document.querySelector('.mainDetailButtons') !== null;
     }
 
     // Initialize
     async function init() {
+        console.log('Jellyfin Share: Initializing...');
+
         const isConfigured = await loadConfig();
         if (!isConfigured) {
-            console.log('Jellyfin Share: Plugin not configured');
+            console.warn('Jellyfin Share: Plugin not configured - check Dashboard > Plugins > Jellyfin Share');
             return;
         }
+
+        console.log('Jellyfin Share: Config loaded, setting up observer');
 
         // Watch for page changes
         const observer = new MutationObserver((mutations) => {
             if (isDetailPage()) {
-                setTimeout(addShareButton, 500);
+                setTimeout(addShareButton, 300);
             }
         });
 
@@ -227,18 +254,26 @@
 
         // Initial check
         if (isDetailPage()) {
-            setTimeout(addShareButton, 500);
+            setTimeout(addShareButton, 300);
         }
 
-        console.log('Jellyfin Share: Plugin initialized');
+        console.log('Jellyfin Share: Plugin initialized successfully');
     }
 
     // Wait for Jellyfin to be ready
-    if (window.ApiClient) {
-        init();
+    function waitForApiClient(callback, attempts = 0) {
+        if (window.ApiClient) {
+            callback();
+        } else if (attempts < 50) {
+            setTimeout(() => waitForApiClient(callback, attempts + 1), 200);
+        } else {
+            console.error('Jellyfin Share: ApiClient not available after 10 seconds');
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => waitForApiClient(init));
     } else {
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(init, 1000);
-        });
+        waitForApiClient(init);
     }
 })();
