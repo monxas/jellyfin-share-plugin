@@ -105,15 +105,16 @@ jobs:
         run: |
           curl -L -o plugin.zip "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip"
 
-      - name: Calculate checksum
+      - name: Calculate checksum and timestamp
         id: checksum
         run: |
           CHECKSUM=$(md5sum plugin.zip | cut -d ' ' -f 1)
           echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
+          echo "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
 
       - name: Update manifest.json
         run: |
-          cat > manifest.json << 'EOF'
+          cat > manifest.json << EOF
           [
             {
               "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -128,7 +129,7 @@ jobs:
                   "targetAbi": "10.10.0.0",
                   "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip",
                   "checksum": "${{ steps.checksum.outputs.CHECKSUM }}",
-                  "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+                  "timestamp": "${{ steps.checksum.outputs.TIMESTAMP }}"
                 }
               ]
             }
