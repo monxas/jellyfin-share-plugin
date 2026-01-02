@@ -25,81 +25,103 @@
 
     // Create share dialog
     function showShareDialog(itemId, itemName) {
+        const styles = `
+            .jfshare-dialog { max-width: 480px; width: 90%; border: none; border-radius: 8px; padding: 0; background: #202020; color: #fff; }
+            .jfshare-dialog::backdrop { background: rgba(0,0,0,0.7); }
+            .jfshare-header { display: flex; align-items: center; padding: 0.75em 1em; border-bottom: 1px solid #333; }
+            .jfshare-close { background: none; border: none; color: #fff; cursor: pointer; padding: 0.5em; margin-right: 0.5em; border-radius: 50%; display: flex; }
+            .jfshare-close:hover { background: rgba(255,255,255,0.1); }
+            .jfshare-title { margin: 0; font-size: 1.2em; font-weight: 500; }
+            .jfshare-content { padding: 1.5em; }
+            .jfshare-subtitle { margin: 0 0 1.5em 0; opacity: 0.7; font-size: 0.95em; }
+            .jfshare-field { margin-bottom: 1.25em; }
+            .jfshare-label { display: block; margin-bottom: 0.4em; font-size: 0.9em; color: #aaa; }
+            .jfshare-input, .jfshare-select { width: 100%; padding: 0.7em 0.8em; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 1em; box-sizing: border-box; }
+            .jfshare-input:focus, .jfshare-select:focus { outline: none; border-color: #00a4dc; }
+            .jfshare-hint { font-size: 0.8em; color: #888; margin-top: 0.3em; }
+            .jfshare-success { margin: 1.5em 0; padding: 1em; background: rgba(82,196,26,0.15); border: 1px solid rgba(82,196,26,0.4); border-radius: 4px; display: none; }
+            .jfshare-success-header { display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.75em; color: #52c41a; }
+            .jfshare-url-row { display: flex; gap: 0.5em; }
+            .jfshare-url { flex: 1; padding: 0.6em; background: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #fff; font-size: 0.9em; }
+            .jfshare-copy { background: #00a4dc; border: none; color: #fff; padding: 0.6em 1em; border-radius: 4px; cursor: pointer; display: flex; align-items: center; }
+            .jfshare-copy:hover { background: #0095c8; }
+            .jfshare-error { margin: 1.5em 0; padding: 1em; background: rgba(255,77,79,0.15); border: 1px solid rgba(255,77,79,0.4); border-radius: 4px; color: #ff6b6b; display: none; }
+            .jfshare-submit { width: 100%; padding: 0.9em; background: #00a4dc; border: none; color: #fff; font-size: 1em; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.4em; margin-top: 1em; }
+            .jfshare-submit:hover { background: #0095c8; }
+            .jfshare-submit:disabled { background: #444; cursor: not-allowed; }
+        `;
+
         const html = `
-            <div class="formDialogHeader">
-                <button is="paper-icon-button-light" class="btnCancel autoSize" tabindex="-1" type="button">
-                    <span class="material-icons arrow_back" aria-hidden="true"></span>
+            <style>${styles}</style>
+            <div class="jfshare-header">
+                <button class="jfshare-close" type="button" title="Close">
+                    <span class="material-icons">close</span>
                 </button>
-                <h3 class="formDialogHeaderTitle">Share</h3>
+                <h3 class="jfshare-title">Share</h3>
             </div>
+            <div class="jfshare-content">
+                <p class="jfshare-subtitle">Create a shareable link for <strong>${itemName}</strong></p>
 
-            <div class="formDialogContent scrollY" style="padding-top: 1em;">
-                <div class="dialogContentInner" style="max-width: 400px; margin: 0 auto;">
+                <div class="jfshare-field">
+                    <label class="jfshare-label" for="shareExpiry">Expires in</label>
+                    <select id="shareExpiry" class="jfshare-select">
+                        <option value="60">1 hour</option>
+                        <option value="360">6 hours</option>
+                        <option value="720">12 hours</option>
+                        <option value="1440" selected>24 hours</option>
+                        <option value="4320">3 days</option>
+                        <option value="10080">7 days</option>
+                        <option value="43200">30 days</option>
+                    </select>
+                </div>
 
-                    <p style="margin: 0 0 1.5em 0; opacity: 0.8;">Create a shareable link for <strong>${itemName}</strong></p>
+                <div class="jfshare-field">
+                    <label class="jfshare-label" for="sharePassword">Password (optional)</label>
+                    <input type="password" id="sharePassword" class="jfshare-input" placeholder="Leave empty for no password" />
+                </div>
 
-                    <div class="selectContainer">
-                        <select id="shareExpiry" is="emby-select" label="Expires in">
-                            <option value="60">1 hour</option>
-                            <option value="360">6 hours</option>
-                            <option value="720">12 hours</option>
-                            <option value="1440" selected>24 hours</option>
-                            <option value="4320">3 days</option>
-                            <option value="10080">7 days</option>
-                            <option value="43200">30 days</option>
-                        </select>
+                <div class="jfshare-field">
+                    <label class="jfshare-label" for="shareMaxPlays">Max plays</label>
+                    <input type="number" id="shareMaxPlays" class="jfshare-input" value="0" min="0" />
+                    <div class="jfshare-hint">0 = unlimited</div>
+                </div>
+
+                <div class="jfshare-field">
+                    <label class="jfshare-label" for="shareMaxViewers">Max concurrent viewers</label>
+                    <input type="number" id="shareMaxViewers" class="jfshare-input" value="0" min="0" />
+                    <div class="jfshare-hint">0 = unlimited</div>
+                </div>
+
+                <div id="shareResult" class="jfshare-success">
+                    <div class="jfshare-success-header">
+                        <span class="material-icons">check_circle</span>
+                        <strong>Share link created!</strong>
                     </div>
-
-                    <div class="inputContainer">
-                        <input type="password" id="sharePassword" is="emby-input" label="Password (optional)" />
-                        <div class="fieldDescription">Leave empty for no password protection</div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <input type="number" id="shareMaxPlays" is="emby-input" label="Max plays" value="0" min="0" />
-                        <div class="fieldDescription">0 = unlimited</div>
-                    </div>
-
-                    <div class="inputContainer">
-                        <input type="number" id="shareMaxViewers" is="emby-input" label="Max concurrent viewers" value="0" min="0" />
-                        <div class="fieldDescription">0 = unlimited</div>
-                    </div>
-
-                    <div id="shareResult" style="display: none; margin: 1.5em 0; padding: 1em; background: rgba(82, 196, 26, 0.15); border: 1px solid rgba(82, 196, 26, 0.3); border-radius: 4px;">
-                        <div style="display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.75em;">
-                            <span class="material-icons" style="color: #52c41a;">check_circle</span>
-                            <strong>Share link created!</strong>
-                        </div>
-                        <div style="display: flex; gap: 0.5em;">
-                            <input type="text" id="shareUrl" readonly style="flex: 1; padding: 0.6em; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: inherit; font-size: 0.9em;" />
-                            <button id="copyShareUrl" is="emby-button" class="raised" style="white-space: nowrap;">
-                                <span class="material-icons" style="font-size: 1.2em;">content_copy</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="shareError" style="display: none; margin: 1.5em 0; padding: 1em; background: rgba(255, 77, 79, 0.15); border: 1px solid rgba(255, 77, 79, 0.3); border-radius: 4px; color: #ff6b6b;">
-                    </div>
-
-                    <div class="formDialogFooter" style="margin-top: 1.5em; padding-top: 1em;">
-                        <button id="btnCreateShare" is="emby-button" type="button" class="raised button-submit block">
-                            <span class="material-icons" style="margin-right: 0.3em;">share</span>
-                            Create Share Link
+                    <div class="jfshare-url-row">
+                        <input type="text" id="shareUrl" class="jfshare-url" readonly />
+                        <button id="copyShareUrl" class="jfshare-copy" title="Copy">
+                            <span class="material-icons">content_copy</span>
                         </button>
                     </div>
                 </div>
+
+                <div id="shareError" class="jfshare-error"></div>
+
+                <button id="btnCreateShare" class="jfshare-submit" type="button">
+                    <span class="material-icons">share</span>
+                    Create Share Link
+                </button>
             </div>
         `;
 
         const dlg = document.createElement('dialog');
-        dlg.classList.add('formDialog', 'focuscontainer');
-        dlg.style.cssText = 'max-width: 500px; width: 90%; border: none; border-radius: 8px; padding: 0; background: #1a1a1a;';
+        dlg.classList.add('jfshare-dialog');
         dlg.innerHTML = html;
 
         document.body.appendChild(dlg);
 
         // Handle close button
-        dlg.querySelector('.btnCancel').addEventListener('click', () => {
+        dlg.querySelector('.jfshare-close').addEventListener('click', () => {
             dlg.close();
         });
 
