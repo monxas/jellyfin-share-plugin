@@ -7,12 +7,25 @@
     // Load plugin configuration
     async function loadConfig() {
         try {
-            const response = await ApiClient.fetch({
-                url: ApiClient.getUrl('plugins/share/config'),
-                type: 'GET'
+            const url = ApiClient.getUrl('plugins/share/config');
+            console.log('Jellyfin Share: Fetching config from', url);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `MediaBrowser Token="${ApiClient.accessToken()}"`,
+                    'X-Emby-Token': ApiClient.accessToken()
+                }
             });
-            pluginConfig = response;
-            return pluginConfig.Configured;
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            pluginConfig = await response.json();
+            console.log('Jellyfin Share: Config response', pluginConfig);
+
+            return pluginConfig.Configured === true;
         } catch (e) {
             console.error('Jellyfin Share: Failed to load config', e);
             return false;
