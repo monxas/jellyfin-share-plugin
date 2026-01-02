@@ -35,6 +35,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -47,8 +49,96 @@ jobs:
       - name: Build Release
         run: dotnet build -c Release
 
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create plugin zip
+        run: |
+          mkdir -p release
+          cp bin/Release/net8.0/Jellyfin.Plugin.Share.dll release/
+          cd release && zip -r ../jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip .
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(md5sum jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip | cut -d ' ' -f 1)
+          echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/Release/net8.0/Jellyfin.Plugin.Share.dll
+          files: |
+            bin/Release/net8.0/Jellyfin.Plugin.Share.dll
+            jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip
           generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Manual
+            1. Download `Jellyfin.Plugin.Share.dll`
+            2. Place in your Jellyfin plugins folder under `JellyfinShare/`
+            3. Restart Jellyfin
+
+            ### Via Plugin Repository
+            Add this repository to Jellyfin: `https://raw.githubusercontent.com/${{ github.repository }}/main/manifest.json`
+
+            **Checksum (MD5):** `${{ steps.checksum.outputs.CHECKSUM }}`
+
+  update-manifest:
+    needs: release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Download release zip
+        run: |
+          curl -L -o plugin.zip "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip"
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(md5sum plugin.zip | cut -d ' ' -f 1)
+          echo "CHECKSUM=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json
+        run: |
+          cat > manifest.json << 'EOF'
+          [
+            {
+              "guid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+              "name": "Jellyfin Share",
+              "description": "Create temporary, shareable links for media items",
+              "owner": "monxas",
+              "category": "General",
+              "versions": [
+                {
+                  "version": "${{ steps.version.outputs.VERSION }}",
+                  "changelog": "See https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.VERSION }}",
+                  "targetAbi": "10.10.0.0",
+                  "sourceUrl": "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION }}/jellyfin-plugin-share-${{ steps.version.outputs.VERSION }}.zip",
+                  "checksum": "${{ steps.checksum.outputs.CHECKSUM }}",
+                  "timestamp": "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+                }
+              ]
+            }
+          ]
+          EOF
+
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Update manifest for v${{ steps.version.outputs.VERSION }}" || exit 0
+          git push
