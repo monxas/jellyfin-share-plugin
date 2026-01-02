@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Jellyfin Share</title>
+</head>
+<body>
+    <div id="JellyfinShareConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="JellyfinShareConfigForm">
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">Jellyfin Share Settings</h2>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtBackendUrl">Backend URL</label>
+                            <input type="text" id="txtBackendUrl" is="emby-input" placeholder="http://localhost:8097" />
+                            <div class="fieldDescription">URL of your Jellyfin Share backend server</div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtBackendApiKey">Backend API Key</label>
+                            <input type="password" id="txtBackendApiKey" is="emby-input" />
+                            <div class="fieldDescription">API key for authenticating with the backend</div>
+                        </div>
+                    </div>
+
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">Default Share Settings</h2>
+                    </div>
+
+                    <div class="verticalSection">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="selectExpiry">Default Expiry</label>
+                            <select id="selectExpiry" is="emby-select">
+                                <option value="60">1 hour</option>
+                                <option value="360">6 hours</option>
+                                <option value="720">12 hours</option>
+                                <option value="1440">24 hours</option>
+                                <option value="4320">3 days</option>
+                                <option value="10080">7 days</option>
+                                <option value="43200">30 days</option>
+                            </select>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtMaxPlays">Default Max Plays</label>
+                            <input type="number" id="txtMaxPlays" is="emby-input" min="0" placeholder="0 = unlimited" />
+                            <div class="fieldDescription">Maximum number of times the share can be played (0 = unlimited)</div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="txtMaxConcurrent">Default Max Concurrent Viewers</label>
+                            <input type="number" id="txtMaxConcurrent" is="emby-input" min="0" placeholder="0 = unlimited" />
+                            <div class="fieldDescription">Maximum simultaneous viewers (0 = unlimited)</div>
+                        </div>
+                    </div>
+
+                    <div class="verticalSection">
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+
+                    <div id="connectionStatus" class="verticalSection" style="display: none;">
+                        <div class="inputContainer">
+                            <button is="emby-button" type="button" id="btnTestConnection" class="raised">
+                                <span>Test Connection</span>
+                            </button>
+                            <span id="connectionResult" style="margin-left: 10px;"></span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var JellyfinShareConfig = {
+                pluginUniqueId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+            };
+
+            document.querySelector('#JellyfinShareConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(JellyfinShareConfig.pluginUniqueId).then(function (config) {
+                        document.querySelector('#txtBackendUrl').value = config.BackendUrl || '';
+                        document.querySelector('#txtBackendApiKey').value = config.BackendApiKey || '';
+                        document.querySelector('#selectExpiry').value = config.DefaultExpiryMinutes || 1440;
+                        document.querySelector('#txtMaxPlays').value = config.DefaultMaxPlays || 0;
+                        document.querySelector('#txtMaxConcurrent').value = config.DefaultMaxConcurrentViewers || 0;
+
+                        if (config.BackendUrl && config.BackendApiKey) {
+                            document.querySelector('#connectionStatus').style.display = 'block';
+                        }
+
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#JellyfinShareConfigForm')
+                .addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(JellyfinShareConfig.pluginUniqueId).then(function (config) {
+                        config.BackendUrl = document.querySelector('#txtBackendUrl').value;
+                        config.BackendApiKey = document.querySelector('#txtBackendApiKey').value;
+                        config.DefaultExpiryMinutes = parseInt(document.querySelector('#selectExpiry').value) || 1440;
+                        config.DefaultMaxPlays = parseInt(document.querySelector('#txtMaxPlays').value) || 0;
+                        config.DefaultMaxConcurrentViewers = parseInt(document.querySelector('#txtMaxConcurrent').value) || 0;
+
+                        ApiClient.updatePluginConfiguration(JellyfinShareConfig.pluginUniqueId, config).then(function () {
+                            Dashboard.processPluginConfigurationUpdateResult();
+                            document.querySelector('#connectionStatus').style.display = 'block';
+                        });
+                    });
+                    return false;
+                });
+
+            document.querySelector('#btnTestConnection')
+                .addEventListener('click', function () {
+                    var resultEl = document.querySelector('#connectionResult');
+                    resultEl.textContent = 'Testing...';
+                    resultEl.style.color = '';
+
+                    var url = document.querySelector('#txtBackendUrl').value;
+                    var apiKey = document.querySelector('#txtBackendApiKey').value;
+
+                    fetch(url + '/api/admin/stats', {
+                        headers: { 'X-Backend-Key': apiKey }
+                    })
+                    .then(function(response) {
+                        if (response.ok) {
+                            resultEl.textContent = 'Connected!';
+                            resultEl.style.color = '#52b54b';
+                        } else {
+                            resultEl.textContent = 'Failed: Invalid API key';
+                            resultEl.style.color = '#cc3333';
+                        }
+                    })
+                    .catch(function(err) {
+                        resultEl.textContent = 'Failed: Cannot reach server';
+                        resultEl.style.color = '#cc3333';
+                    });
+                });
+        </script>
+    </div>
+</body>
+</html>

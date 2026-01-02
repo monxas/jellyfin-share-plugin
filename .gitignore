@@ -1,0 +1,22 @@
+# Build results
+bin/
+obj/
+out/
+dist/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+*.userprefs
+
+# NuGet
+*.nupkg
+packages/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
