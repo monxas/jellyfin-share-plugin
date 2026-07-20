@@ -4,7 +4,7 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 
 ## Requirements
 
-- Jellyfin 10.10 or later
+- Jellyfin 10.11 or later (built against the 10.11 ABI / .NET 9)
 - [Jellyfin Share Backend](https://github.com/monxas/jellyfin-share-backend) running and configured
 
 ## Installation
@@ -21,7 +21,7 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 1. Download the latest release from [Releases](https://github.com/monxas/jellyfin-share-plugin/releases)
 2. Extract `Jellyfin.Plugin.Share.dll` to your Jellyfin plugins directory:
    - Linux: `/var/lib/jellyfin/plugins/JellyfinShare/`
-   - Docker: `/config/plugins/JellyfinShare/`
+   - Docker (linuxserver.io): `/config/data/plugins/Jellyfin Share_<version>/`
    - Windows: `C:\ProgramData\Jellyfin\Server\plugins\JellyfinShare\`
 3. Restart Jellyfin
 
@@ -36,16 +36,42 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 
 ## Enabling the Share Button
 
-The plugin needs to inject JavaScript into the Jellyfin web interface. Add this to your Jellyfin branding settings:
+The plugin needs to inject JavaScript into the Jellyfin web interface. Since v1.2.0 it does
+this itself: on every startup `IndexPatcher` appends `<script src="/plugins/share/loader.js">`
+to `web/index.html` if it isn't there already. Because it re-runs on each boot, the button
+survives Jellyfin upgrades — which wipe `web/` and undo the patch — **as long as the web
+directory is writable by the user Jellyfin runs as.**
 
-1. Go to **Dashboard → General → Branding**
-2. In "Custom CSS", add nothing (leave as is)
-3. In "Custom HTML" or via custom scripts, add:
-   ```html
-   <script src="/plugins/share/client.js"></script>
-   ```
+If the button disappears after an upgrade, that write permission is what to check first:
 
-Alternatively, if using a reverse proxy, you can inject this script there.
+```
+[WRN] Jellyfin Share: No write permission for "/usr/share/jellyfin/web/index.html"
+```
+
+`web/` ships as root-owned, while most container images run Jellyfin as a non-root user, so a
+fresh image resets the ownership. On linuxserver.io images, restore it on every boot with a
+`/custom-cont-init.d` hook (runs as root, before Jellyfin starts):
+
+```yaml
+volumes:
+  - /path/to/jellyfin-init:/custom-cont-init.d:ro
+```
+
+```bash
+# jellyfin-init/10-share-plugin-webperms.sh  (must be chmod +x)
+#!/bin/bash
+chown "${PUID:-911}:${PGID:-911}" /usr/share/jellyfin/web /usr/share/jellyfin/web/index.html
+```
+
+Confirm it worked — this line should appear on startup:
+
+```
+[INF] Jellyfin Share: Successfully patched index.html at "/usr/share/jellyfin/web/index.html"
+```
+
+Do **not** also inject `client.js` via the JavaScript Injector plugin or the Custom CSS
+`</style><script>` trick — those are legacy workarounds, they break on Jellyfin 10.11, and if
+one starts working again the script loads twice.
 
 ## Usage
 
