@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "1.2.1",
+        "changelog": "See https://github.com/monxas/jellyfin-share-plugin/releases/tag/v1.2.1",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/monxas/jellyfin-share-plugin/releases/download/v1.2.1/jellyfin-plugin-share-1.2.1.zip",
+        "checksum": "8075c91b656f5bd46cf9ae4c365e36ee",
+        "timestamp": "2026-07-20T20:58:07Z"
+      },
+      {
         "version": "1.2.0",
         "changelog": "See https://github.com/monxas/jellyfin-share-plugin/releases/tag/v1.2.0",
         "targetAbi": "10.10.0.0",
