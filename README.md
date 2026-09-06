@@ -1,6 +1,6 @@
 # Jellyfin Share Plugin
 
-A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, allowing you to create temporary, shareable links for your media content.
+A Jellyfin plugin that adds a "Share" button to movie, episode, season and series detail pages, allowing you to create temporary, shareable links for your media content.
 
 ## Requirements
 
@@ -21,8 +21,13 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 1. Download the latest release from [Releases](https://github.com/monxas/jellyfin-share-plugin/releases)
 2. Extract `Jellyfin.Plugin.Share.dll` to your Jellyfin plugins directory:
    - Linux: `/var/lib/jellyfin/plugins/JellyfinShare/`
+   - Docker (official `jellyfin/jellyfin`): `/config/plugins/Jellyfin Share_<version>/`
    - Docker (linuxserver.io): `/config/data/plugins/Jellyfin Share_<version>/`
    - Windows: `C:\ProgramData\Jellyfin\Server\plugins\JellyfinShare\`
+
+   The version in the folder name must be four parts (`1.2.3.0`). Jellyfin sorts
+   plugin folders by it, so a locally built DLL needs a higher version than any
+   copy installed from the catalogue or the catalogue's will win.
 3. Restart Jellyfin
 
 ## Configuration
@@ -78,7 +83,7 @@ one starts working again the script loads twice.
 
 ## Usage
 
-1. Navigate to any movie or episode detail page
+1. Navigate to a movie, episode, season or series detail page
 2. Click the **Share** button in the action buttons row
 3. Configure share options:
    - **Share type** (series and seasons only): share the item itself, or create one
