@@ -39,6 +39,13 @@
     }
 
     // Format expiry
+    // Mirrors the plugin settings page: the configured default is stored in minutes
+    // but both surfaces present it as whole days.
+    function defaultExpiryDays() {
+        const minutes = pluginConfig?.DefaultExpiryMinutes || 1440;
+        return Math.max(1, Math.round(minutes / 1440));
+    }
+
     function formatExpiry(date) {
         if (!date) return 'Never expires';
         const now = new Date();
@@ -182,9 +189,9 @@
 
                 <div class="jfshare-field">
                     <label class="jfshare-label" for="shareExpiry">Expires in (days)</label>
-                    <input type="number" id="shareExpiry" class="jfshare-input" value="1" min="1" autocomplete="off">
+                    <input type="number" id="shareExpiry" class="jfshare-input" value="${defaultExpiryDays()}" min="1" autocomplete="off"${pluginConfig?.DefaultNeverExpires ? ' disabled' : ''}>
                     <label class="jfshare-checkbox">
-                        <input type="checkbox" id="shareNeverExpires">
+                        <input type="checkbox" id="shareNeverExpires"${pluginConfig?.DefaultNeverExpires ? ' checked' : ''}>
                         <span>Never expires</span>
                     </label>
                 </div>
