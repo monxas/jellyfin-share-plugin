@@ -7,11 +7,33 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.Share.Api;
 
 /// <summary>
+/// Outcome of an action scoped to a share owner, so a refusal is not reported as
+/// a server failure.
+/// </summary>
+public enum ShareActionResult
+{
+    /// <summary>The action succeeded.</summary>
+    Ok,
+
+    /// <summary>The share belongs to another user.</summary>
+    Forbidden,
+
+    /// <summary>The action failed for another reason.</summary>
+    Failed,
+}
+
+/// <summary>
 /// Service for communicating with the Jellyfin Share backend.
 /// </summary>
 public class ShareService
 {
     private readonly ILogger<ShareService> _logger;
+
+    /// <summary>
+    /// Gets a value indicating whether the last analytics call was refused because
+    /// the share belongs to another user.
+    /// </summary>
+    public bool Forbidden { get; private set; }
     private readonly HttpClient _httpClient;
 
     /// <summary>
@@ -119,19 +141,22 @@ public class ShareService
     /// Revokes a share.
     /// </summary>
     /// <param name="shareId">The share ID to revoke.</param>
+    /// <param name="jellyfinUserId">Owner the action is scoped to.</param>
     /// <returns>True if successful.</returns>
-    public async Task<bool> RevokeShareAsync(string shareId)
+    public async Task<ShareActionResult> RevokeShareAsync(string shareId, string jellyfinUserId)
     {
         var config = Plugin.Instance?.Configuration;
         if (config == null || string.IsNullOrEmpty(config.BackendUrl) || string.IsNullOrEmpty(config.BackendApiKey))
         {
             _logger.LogError("Plugin not configured");
-            return false;
+            return ShareActionResult.Failed;
         }
 
         try
         {
-            var url = $"{config.BackendUrl.TrimEnd('/')}/api/admin/shares/{shareId}/revoke";
+            // Scope the call to the caller so the backend refuses another user's share.
+            var url = $"{config.BackendUrl.TrimEnd('/')}/api/admin/shares/{shareId}/revoke"
+                + $"?jellyfinUserId={Uri.EscapeDataString(jellyfinUserId)}";
 
             var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
             httpRequest.Headers.Add("X-Backend-Key", config.BackendApiKey);
@@ -142,15 +167,17 @@ public class ShareService
             {
                 var error = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to revoke share: {StatusCode} - {Error}", response.StatusCode, error);
-                return false;
+                return response.StatusCode == System.Net.HttpStatusCode.Forbidden
+                    ? ShareActionResult.Forbidden
+                    : ShareActionResult.Failed;
             }
 
-            return true;
+            return ShareActionResult.Ok;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error revoking share");
-            return false;
+            return ShareActionResult.Failed;
         }
     }
 
@@ -158,8 +185,9 @@ public class ShareService
     /// Gets analytics for a share.
     /// </summary>
     /// <param name="shareId">The share ID.</param>
+    /// <param name="jellyfinUserId">Owner the query is scoped to.</param>
     /// <returns>Analytics data.</returns>
-    public async Task<ShareAnalytics?> GetShareAnalyticsAsync(string shareId)
+    public async Task<ShareAnalytics?> GetShareAnalyticsAsync(string shareId, string jellyfinUserId)
     {
         var config = Plugin.Instance?.Configuration;
         if (config == null || string.IsNullOrEmpty(config.BackendUrl) || string.IsNullOrEmpty(config.BackendApiKey))
@@ -170,7 +198,8 @@ public class ShareService
 
         try
         {
-            var url = $"{config.BackendUrl.TrimEnd('/')}/api/admin/shares/{shareId}/analytics";
+            var url = $"{config.BackendUrl.TrimEnd('/')}/api/admin/shares/{shareId}/analytics"
+                + $"?jellyfinUserId={Uri.EscapeDataString(jellyfinUserId)}";
 
             var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
             httpRequest.Headers.Add("X-Backend-Key", config.BackendApiKey);
@@ -181,6 +210,7 @@ public class ShareService
             {
                 var error = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to get analytics: {StatusCode} - {Error}", response.StatusCode, error);
+                Forbidden = response.StatusCode == System.Net.HttpStatusCode.Forbidden;
                 return null;
             }
 
@@ -217,6 +247,23 @@ public class CreateShareRequest
     /// Gets or sets the expiry time in minutes.
     /// </summary>
     public int ExpiresInMinutes { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the share never expires.
+    /// Overrides <see cref="ExpiresInMinutes"/> when true.
+    /// </summary>
+    public bool NeverExpires { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum picture height for this share (720 for 720p and so
+    /// on). Null leaves the source untouched.
+    /// </summary>
+    public int? MaxVideoHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum transcode bitrate for this share, in bits per second.
+    /// </summary>
+    public int? MaxVideoBitrate { get; set; }
 
     /// <summary>
     /// Gets or sets the optional password.
@@ -257,7 +304,7 @@ public class ShareResponse
     /// <summary>
     /// Gets or sets the expiry time.
     /// </summary>
-    public DateTime ExpiresAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 }
 
 /// <summary>
@@ -274,6 +321,12 @@ public class ShareListItem
     /// Gets or sets the public token.
     /// </summary>
     public string PublicToken { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the browser-facing share URL as reported by the backend.
+    /// Empty when talking to a backend older than the one that added it.
+    /// </summary>
+    public string PublicUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the title.
@@ -308,7 +361,7 @@ public class ShareListItem
     /// <summary>
     /// Gets or sets the expiry time.
     /// </summary>
-    public DateTime ExpiresAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 
     /// <summary>
     /// Gets or sets the creation time.

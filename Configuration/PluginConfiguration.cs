@@ -15,6 +15,7 @@ public class PluginConfiguration : BasePluginConfiguration
         BackendUrl = "http://localhost:8097";
         BackendApiKey = string.Empty;
         DefaultExpiryMinutes = 1440; // 24 hours
+        DefaultNeverExpires = false;
         DefaultMaxPlays = 0; // unlimited
         DefaultMaxConcurrentViewers = 0; // unlimited
     }
@@ -33,6 +34,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the default expiry time in minutes.
     /// </summary>
     public int DefaultExpiryMinutes { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether new shares default to never expiring.
+    /// When true, <see cref="DefaultExpiryMinutes"/> is ignored.
+    /// </summary>
+    public bool DefaultNeverExpires { get; set; }
 
     /// <summary>
     /// Gets or sets the default max total plays (0 = unlimited).

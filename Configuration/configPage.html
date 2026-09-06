@@ -33,16 +33,17 @@
 
                     <div class="verticalSection">
                         <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="selectExpiry">Default Expiry</label>
-                            <select id="selectExpiry" is="emby-select">
-                                <option value="60">1 hour</option>
-                                <option value="360">6 hours</option>
-                                <option value="720">12 hours</option>
-                                <option value="1440">24 hours</option>
-                                <option value="4320">3 days</option>
-                                <option value="10080">7 days</option>
-                                <option value="43200">30 days</option>
-                            </select>
+                            <label class="inputLabel inputLabelUnfocused" for="txtExpiryDays">Default Expiry (days)</label>
+                            <input type="number" id="txtExpiryDays" is="emby-input" min="1" />
+                            <div class="fieldDescription">Pre-fills the share dialog. Same unit as the dialog itself.</div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input type="checkbox" id="chkNeverExpires" is="emby-checkbox" />
+                                <span>Shares never expire by default</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">When enabled, the expiry above is ignored.</div>
                         </div>
 
                         <div class="inputContainer">
@@ -87,7 +88,10 @@
                     ApiClient.getPluginConfiguration(JellyfinShareConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#txtBackendUrl').value = config.BackendUrl || '';
                         document.querySelector('#txtBackendApiKey').value = config.BackendApiKey || '';
-                        document.querySelector('#selectExpiry').value = config.DefaultExpiryMinutes || 1440;
+                        var days = Math.max(1, Math.round((config.DefaultExpiryMinutes || 1440) / 1440));
+                        document.querySelector('#txtExpiryDays').value = days;
+                        document.querySelector('#chkNeverExpires').checked = config.DefaultNeverExpires === true;
+                        document.querySelector('#txtExpiryDays').disabled = config.DefaultNeverExpires === true;
                         document.querySelector('#txtMaxPlays').value = config.DefaultMaxPlays || 0;
                         document.querySelector('#txtMaxConcurrent').value = config.DefaultMaxConcurrentViewers || 0;
 
@@ -99,6 +103,11 @@
                     });
                 });
 
+            document.querySelector('#chkNeverExpires')
+                .addEventListener('change', function () {
+                    document.querySelector('#txtExpiryDays').disabled = this.checked;
+                });
+
             document.querySelector('#JellyfinShareConfigForm')
                 .addEventListener('submit', function (e) {
                     e.preventDefault();
@@ -106,7 +115,8 @@
                     ApiClient.getPluginConfiguration(JellyfinShareConfig.pluginUniqueId).then(function (config) {
                         config.BackendUrl = document.querySelector('#txtBackendUrl').value;
                         config.BackendApiKey = document.querySelector('#txtBackendApiKey').value;
-                        config.DefaultExpiryMinutes = parseInt(document.querySelector('#selectExpiry').value) || 1440;
+                        config.DefaultExpiryMinutes = (parseInt(document.querySelector('#txtExpiryDays').value) || 1) * 1440;
+                        config.DefaultNeverExpires = document.querySelector('#chkNeverExpires').checked;
                         config.DefaultMaxPlays = parseInt(document.querySelector('#txtMaxPlays').value) || 0;
                         config.DefaultMaxConcurrentViewers = parseInt(document.querySelector('#txtMaxConcurrent').value) || 0;
 

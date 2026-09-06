@@ -22,6 +22,7 @@ public class ShareController : ControllerBase
     private readonly ILogger<ShareController> _logger;
     private readonly ShareService _shareService;
     private readonly ILibraryManager _libraryManager;
+    private readonly IUserManager _userManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShareController"/> class.
@@ -29,14 +30,58 @@ public class ShareController : ControllerBase
     /// <param name="logger">Logger instance.</param>
     /// <param name="shareService">Share service.</param>
     /// <param name="libraryManager">Library manager.</param>
+    /// <param name="userManager">User manager, used to resolve the caller's permissions.</param>
     public ShareController(
         ILogger<ShareController> logger,
         ShareService shareService,
-        ILibraryManager libraryManager)
+        ILibraryManager libraryManager,
+        IUserManager userManager)
     {
         _logger = logger;
         _shareService = shareService;
         _libraryManager = libraryManager;
+        _userManager = userManager;
+    }
+
+    /// <summary>
+    /// Gets the calling user's Jellyfin id, or an empty string when it cannot be
+    /// determined. Callers must refuse to act rather than fall back to a shared
+    /// placeholder, which would put unrelated users in the same bucket.
+    /// </summary>
+    private string CurrentUserId() =>
+        User.FindFirst("Jellyfin-UserId")?.Value
+        ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? string.Empty;
+
+    /// <summary>
+    /// Resolves an item the calling user is actually allowed to see. ILibraryManager
+    /// is server-side and has no notion of the caller, so without this check any
+    /// signed-in user could publish a link to anything in the library, including
+    /// content their own account is not permitted to open.
+    /// </summary>
+    private MediaBrowser.Controller.Entities.BaseItem? GetVisibleItem(string itemId, string userId)
+    {
+        if (!Guid.TryParse(itemId, out var id) || !Guid.TryParse(userId, out var uid))
+        {
+            return null;
+        }
+
+        var item = _libraryManager.GetItemById(id);
+        if (item == null)
+        {
+            return null;
+        }
+
+        // IsVisibleStandalone, not IsVisible: the latter only weighs parental ratings
+        // and tags, so a user locked out of a library still passed it. This one also
+        // checks that the user has access to the library the item sits in.
+        var user = _userManager.GetUserById(uid);
+        if (user == null || !item.IsVisibleStandalone(user))
+        {
+            return null;
+        }
+
+        return item;
     }
 
     /// <summary>
@@ -56,23 +101,27 @@ public class ShareController : ControllerBase
             return BadRequest(new { Error = "Plugin not configured. Please configure the backend URL and API key." });
         }
 
-        // Verify item exists
-        var item = _libraryManager.GetItemById(Guid.Parse(request.ItemId));
+        var userId = CurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Forbid();
+        }
+
+        // Resolve against what this user may see, not against the whole library
+        var item = GetVisibleItem(request.ItemId, userId);
         if (item == null)
         {
             return BadRequest(new { Error = "Item not found" });
         }
-
-        // Get user ID from auth
-        var userId = User.FindFirst("Jellyfin-UserId")?.Value
-            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? "unknown";
 
         var shareRequest = new CreateShareRequest
         {
             JellyfinItemId = request.ItemId,
             JellyfinUserId = userId,
             ExpiresInMinutes = request.ExpiresInMinutes ?? config.DefaultExpiryMinutes,
+            NeverExpires = request.NeverExpires ?? config.DefaultNeverExpires,
+            MaxVideoHeight = request.MaxVideoHeight,
+            MaxVideoBitrate = request.MaxVideoBitrate,
             Password = request.Password,
             MaxTotalPlays = request.MaxTotalPlays ?? (config.DefaultMaxPlays > 0 ? config.DefaultMaxPlays : null),
             MaxConcurrentViewers = request.MaxConcurrentViewers ?? (config.DefaultMaxConcurrentViewers > 0 ? config.DefaultMaxConcurrentViewers : null)
@@ -107,6 +156,7 @@ public class ShareController : ControllerBase
         {
             Configured = !string.IsNullOrEmpty(config.BackendUrl) && !string.IsNullOrEmpty(config.BackendApiKey),
             DefaultExpiryMinutes = config.DefaultExpiryMinutes,
+            DefaultNeverExpires = config.DefaultNeverExpires,
             DefaultMaxPlays = config.DefaultMaxPlays,
             DefaultMaxConcurrentViewers = config.DefaultMaxConcurrentViewers,
             BackendUrl = config.BackendUrl
@@ -128,9 +178,11 @@ public class ShareController : ControllerBase
             return BadRequest(new { Error = "Plugin not configured" });
         }
 
-        var userId = User.FindFirst("Jellyfin-UserId")?.Value
-            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? "unknown";
+        var userId = CurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Forbid();
+        }
 
         var result = await _shareService.GetSharesAsync(userId);
         if (result == null)
@@ -153,8 +205,12 @@ public class ShareController : ControllerBase
             s.CreatedAt,
             s.RevokedAt,
             s.HasPassword,
-            PublicUrl = $"{config.BackendUrl?.TrimEnd('/')}/s/{s.PublicToken}",
-            IsExpired = s.ExpiresAt < DateTime.UtcNow,
+            // The backend knows its own public base URL; BackendUrl is only how *this*
+            // server reaches it, which differs behind Docker or a reverse proxy.
+            PublicUrl = string.IsNullOrEmpty(s.PublicUrl)
+                ? $"{config.BackendUrl?.TrimEnd('/')}/s/{s.PublicToken}"
+                : s.PublicUrl,
+            IsExpired = s.ExpiresAt.HasValue && s.ExpiresAt.Value < DateTime.UtcNow,
             IsRevoked = s.RevokedAt != null
         }).ToList();
 
@@ -178,8 +234,19 @@ public class ShareController : ControllerBase
             return BadRequest(new { Error = "Plugin not configured" });
         }
 
-        var result = await _shareService.RevokeShareAsync(shareId);
-        if (!result)
+        var userId = CurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Forbid();
+        }
+
+        var result = await _shareService.RevokeShareAsync(shareId, userId);
+        if (result == ShareActionResult.Forbidden)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Error = "This share belongs to another user" });
+        }
+
+        if (result != ShareActionResult.Ok)
         {
             return StatusCode(500, new { Error = "Failed to revoke share" });
         }
@@ -204,9 +271,20 @@ public class ShareController : ControllerBase
             return BadRequest(new { Error = "Plugin not configured" });
         }
 
-        var result = await _shareService.GetShareAnalyticsAsync(shareId);
+        var userId = CurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Forbid();
+        }
+
+        var result = await _shareService.GetShareAnalyticsAsync(shareId, userId);
         if (result == null)
         {
+            if (_shareService.Forbidden)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { Error = "This share belongs to another user" });
+            }
+
             return StatusCode(500, new { Error = "Failed to get analytics" });
         }
 
@@ -230,17 +308,17 @@ public class ShareController : ControllerBase
             return BadRequest(new { Error = "Plugin not configured" });
         }
 
-        // Get the parent item
-        var parentItem = _libraryManager.GetItemById(Guid.Parse(request.ParentItemId));
+        var userId = CurrentUserId();
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Forbid();
+        }
+
+        var parentItem = GetVisibleItem(request.ParentItemId, userId);
         if (parentItem == null)
         {
             return BadRequest(new { Error = "Parent item not found" });
         }
-
-        // Get user ID from auth
-        var userId = User.FindFirst("Jellyfin-UserId")?.Value
-            ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? "unknown";
 
         // Get children based on item type
         var query = new MediaBrowser.Controller.Entities.InternalItemsQuery
@@ -264,13 +342,22 @@ public class ShareController : ControllerBase
         var successCount = 0;
         var failCount = 0;
 
+        var viewer = Guid.TryParse(userId, out var uid) ? _userManager.GetUserById(uid) : null;
         foreach (var child in children.OrderBy(c => c.IndexNumber ?? 0))
         {
+            if (viewer != null && !child.IsVisibleStandalone(viewer))
+            {
+                continue;
+            }
+
             var shareRequest = new CreateShareRequest
             {
                 JellyfinItemId = child.Id.ToString("N"),
                 JellyfinUserId = userId,
                 ExpiresInMinutes = request.ExpiresInMinutes ?? config.DefaultExpiryMinutes,
+                NeverExpires = request.NeverExpires ?? config.DefaultNeverExpires,
+                MaxVideoHeight = request.MaxVideoHeight,
+                MaxVideoBitrate = request.MaxVideoBitrate,
                 Password = request.Password,
                 MaxTotalPlays = request.MaxTotalPlays ?? (config.DefaultMaxPlays > 0 ? config.DefaultMaxPlays : null),
                 MaxConcurrentViewers = request.MaxConcurrentViewers ?? (config.DefaultMaxConcurrentViewers > 0 ? config.DefaultMaxConcurrentViewers : null)
@@ -348,6 +435,24 @@ public class CreateShareApiRequest
     public int? ExpiresInMinutes { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the share never expires.
+    /// Null means "not specified" and falls back to the configured default;
+    /// an explicit false must be able to override a default of true.
+    /// </summary>
+    public bool? NeverExpires { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum picture height for this share (720 for 720p).
+    /// Null or 0 means the quality of the source.
+    /// </summary>
+    public int? MaxVideoHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum transcode bitrate for this share, in bits per second.
+    /// </summary>
+    public int? MaxVideoBitrate { get; set; }
+
+    /// <summary>
     /// Gets or sets the optional password.
     /// </summary>
     public string? Password { get; set; }
@@ -378,6 +483,24 @@ public class CreateBatchShareRequest
     /// Gets or sets the expiry in minutes.
     /// </summary>
     public int? ExpiresInMinutes { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the share never expires.
+    /// Null means "not specified" and falls back to the configured default;
+    /// an explicit false must be able to override a default of true.
+    /// </summary>
+    public bool? NeverExpires { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum picture height for this share (720 for 720p).
+    /// Null or 0 means the quality of the source.
+    /// </summary>
+    public int? MaxVideoHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum transcode bitrate for this share, in bits per second.
+    /// </summary>
+    public int? MaxVideoBitrate { get; set; }
 
     /// <summary>
     /// Gets or sets the optional password (same for all shares).
