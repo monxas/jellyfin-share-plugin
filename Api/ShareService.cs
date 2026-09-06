@@ -249,6 +249,12 @@ public class CreateShareRequest
     public int ExpiresInMinutes { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the share never expires.
+    /// Overrides <see cref="ExpiresInMinutes"/> when true.
+    /// </summary>
+    public bool NeverExpires { get; set; }
+
+    /// <summary>
     /// Gets or sets the optional password.
     /// </summary>
     public string? Password { get; set; }
@@ -287,7 +293,7 @@ public class ShareResponse
     /// <summary>
     /// Gets or sets the expiry time.
     /// </summary>
-    public DateTime ExpiresAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 }
 
 /// <summary>
@@ -304,6 +310,12 @@ public class ShareListItem
     /// Gets or sets the public token.
     /// </summary>
     public string PublicToken { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the browser-facing share URL as reported by the backend.
+    /// Empty when talking to a backend older than the one that added it.
+    /// </summary>
+    public string PublicUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the title.
@@ -338,7 +350,7 @@ public class ShareListItem
     /// <summary>
     /// Gets or sets the expiry time.
     /// </summary>
-    public DateTime ExpiresAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
 
     /// <summary>
     /// Gets or sets the creation time.

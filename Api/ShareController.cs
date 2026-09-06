@@ -119,6 +119,7 @@ public class ShareController : ControllerBase
             JellyfinItemId = request.ItemId,
             JellyfinUserId = userId,
             ExpiresInMinutes = request.ExpiresInMinutes ?? config.DefaultExpiryMinutes,
+            NeverExpires = request.NeverExpires,
             Password = request.Password,
             MaxTotalPlays = request.MaxTotalPlays ?? (config.DefaultMaxPlays > 0 ? config.DefaultMaxPlays : null),
             MaxConcurrentViewers = request.MaxConcurrentViewers ?? (config.DefaultMaxConcurrentViewers > 0 ? config.DefaultMaxConcurrentViewers : null)
@@ -201,8 +202,12 @@ public class ShareController : ControllerBase
             s.CreatedAt,
             s.RevokedAt,
             s.HasPassword,
-            PublicUrl = $"{config.BackendUrl?.TrimEnd('/')}/s/{s.PublicToken}",
-            IsExpired = s.ExpiresAt < DateTime.UtcNow,
+            // The backend knows its own public base URL; BackendUrl is only how *this*
+            // server reaches it, which differs behind Docker or a reverse proxy.
+            PublicUrl = string.IsNullOrEmpty(s.PublicUrl)
+                ? $"{config.BackendUrl?.TrimEnd('/')}/s/{s.PublicToken}"
+                : s.PublicUrl,
+            IsExpired = s.ExpiresAt.HasValue && s.ExpiresAt.Value < DateTime.UtcNow,
             IsRevoked = s.RevokedAt != null
         }).ToList();
 
@@ -347,6 +352,7 @@ public class ShareController : ControllerBase
                 JellyfinItemId = child.Id.ToString("N"),
                 JellyfinUserId = userId,
                 ExpiresInMinutes = request.ExpiresInMinutes ?? config.DefaultExpiryMinutes,
+                NeverExpires = request.NeverExpires,
                 Password = request.Password,
                 MaxTotalPlays = request.MaxTotalPlays ?? (config.DefaultMaxPlays > 0 ? config.DefaultMaxPlays : null),
                 MaxConcurrentViewers = request.MaxConcurrentViewers ?? (config.DefaultMaxConcurrentViewers > 0 ? config.DefaultMaxConcurrentViewers : null)
@@ -424,6 +430,11 @@ public class CreateShareApiRequest
     public int? ExpiresInMinutes { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the share never expires.
+    /// </summary>
+    public bool NeverExpires { get; set; }
+
+    /// <summary>
     /// Gets or sets the optional password.
     /// </summary>
     public string? Password { get; set; }
@@ -454,6 +465,11 @@ public class CreateBatchShareRequest
     /// Gets or sets the expiry in minutes.
     /// </summary>
     public int? ExpiresInMinutes { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the share never expires.
+    /// </summary>
+    public bool NeverExpires { get; set; }
 
     /// <summary>
     /// Gets or sets the optional password (same for all shares).

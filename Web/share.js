@@ -40,6 +40,7 @@
 
     // Format expiry
     function formatExpiry(date) {
+        if (!date) return 'Never expires';
         const now = new Date();
         const exp = new Date(date);
         if (exp < now) return 'Expired';
@@ -100,6 +101,9 @@
         .jfshare-input, .jfshare-select { width: 100%; padding: 0.7em 0.8em; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 1em; box-sizing: border-box; }
         .jfshare-input:focus, .jfshare-select:focus { outline: none; border-color: #00a4dc; }
         .jfshare-hint { font-size: 0.8em; color: #888; margin-top: 0.3em; }
+        .jfshare-checkbox { display: flex; align-items: center; gap: 0.5em; margin-top: 0.6em; font-size: 0.9em; color: #aaa; cursor: pointer; }
+        .jfshare-checkbox input { width: 1em; height: 1em; accent-color: #00a4dc; cursor: pointer; }
+        .jfshare-input:disabled { opacity: 0.45; cursor: not-allowed; }
         .jfshare-success { margin: 1.5em 0; padding: 1em; background: rgba(82,196,26,0.15); border: 1px solid rgba(82,196,26,0.4); border-radius: 4px; }
         .jfshare-success-header { display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.75em; color: #52c41a; }
         .jfshare-url-row { display: flex; gap: 0.5em; margin-bottom: 1em; }
@@ -177,16 +181,12 @@
                 ` : ''}
 
                 <div class="jfshare-field">
-                    <label class="jfshare-label" for="shareExpiry">Expires in</label>
-                    <select id="shareExpiry" class="jfshare-select">
-                        <option value="60">1 hour</option>
-                        <option value="360">6 hours</option>
-                        <option value="720">12 hours</option>
-                        <option value="1440" selected>24 hours</option>
-                        <option value="4320">3 days</option>
-                        <option value="10080">7 days</option>
-                        <option value="43200">30 days</option>
-                    </select>
+                    <label class="jfshare-label" for="shareExpiry">Expires in (days)</label>
+                    <input type="number" id="shareExpiry" class="jfshare-input" value="1" min="1" autocomplete="off">
+                    <label class="jfshare-checkbox">
+                        <input type="checkbox" id="shareNeverExpires">
+                        <span>Never expires</span>
+                    </label>
                 </div>
 
                 <div class="jfshare-field">
@@ -249,6 +249,14 @@
             dlg.remove();
         });
 
+        // A share that never expires has no use for a duration - grey the field out
+        // so the dialog cannot show a number that is about to be ignored.
+        const neverBox = dlg.querySelector('#shareNeverExpires');
+        const expiryInput = dlg.querySelector('#shareExpiry');
+        neverBox.addEventListener('change', () => {
+            expiryInput.disabled = neverBox.checked;
+        });
+
         // Handle create
         dlg.querySelector('#btnCreateShare').addEventListener('click', async () => {
             const btn = dlg.querySelector('#btnCreateShare');
@@ -261,7 +269,8 @@
             errorDiv.style.display = 'none';
 
             const shareType = dlg.querySelector('#shareType')?.value || 'single';
-            const expiry = parseInt(dlg.querySelector('#shareExpiry').value);
+            const neverExpires = dlg.querySelector('#shareNeverExpires').checked;
+            const expiry = parseInt(dlg.querySelector('#shareExpiry').value) * 1440;
             const password = dlg.querySelector('#sharePassword').value || null;
             const maxPlays = parseInt(dlg.querySelector('#shareMaxPlays').value) || null;
             const maxViewers = parseInt(dlg.querySelector('#shareMaxViewers').value) || null;
@@ -276,6 +285,7 @@
                         data: JSON.stringify({
                             parentItemId: itemId,
                             expiresInMinutes: expiry,
+                            neverExpires: neverExpires,
                             password: password,
                             maxTotalPlays: maxPlays,
                             maxConcurrentViewers: maxViewers
@@ -342,6 +352,7 @@
                         data: JSON.stringify({
                             itemId: itemId,
                             expiresInMinutes: expiry,
+                            neverExpires: neverExpires,
                             password: password,
                             maxTotalPlays: maxPlays,
                             maxConcurrentViewers: maxViewers
