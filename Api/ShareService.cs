@@ -255,6 +255,17 @@ public class CreateShareRequest
     public bool NeverExpires { get; set; }
 
     /// <summary>
+    /// Gets or sets the maximum picture height for this share (720 for 720p and so
+    /// on). Null leaves the source untouched.
+    /// </summary>
+    public int? MaxVideoHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum transcode bitrate for this share, in bits per second.
+    /// </summary>
+    public int? MaxVideoBitrate { get; set; }
+
+    /// <summary>
     /// Gets or sets the optional password.
     /// </summary>
     public string? Password { get; set; }

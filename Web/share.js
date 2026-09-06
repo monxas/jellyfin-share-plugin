@@ -197,6 +197,17 @@
                 </div>
 
                 <div class="jfshare-field">
+                    <label class="jfshare-label" for="shareQuality">Quality</label>
+                    <select id="shareQuality" class="jfshare-select">
+                        <option value="">Original</option>
+                        <option value="1080">1080p (max 8 Mbit/s)</option>
+                        <option value="720">720p (max 4 Mbit/s)</option>
+                        <option value="480">480p (max 1.5 Mbit/s)</option>
+                    </select>
+                    <div class="jfshare-hint">Lowers quality for this link only. Never raises it above the source.</div>
+                </div>
+
+                <div class="jfshare-field">
                     <label class="jfshare-label" for="sharePassword">Password (optional)</label>
                     <input type="password" id="sharePassword" class="jfshare-input" placeholder="Leave empty for no password" />
                 </div>
@@ -277,6 +288,9 @@
 
             const shareType = dlg.querySelector('#shareType')?.value || 'single';
             const neverExpires = dlg.querySelector('#shareNeverExpires').checked;
+            // Empty = original quality; the backend treats null as "no cap".
+            const qualityHeight = parseInt(dlg.querySelector('#shareQuality').value) || null;
+            const qualityBitrate = { 1080: 8000000, 720: 4000000, 480: 1500000 }[qualityHeight] || null;
             const expiry = parseInt(dlg.querySelector('#shareExpiry').value) * 1440;
             const password = dlg.querySelector('#sharePassword').value || null;
             const maxPlays = parseInt(dlg.querySelector('#shareMaxPlays').value) || null;
@@ -293,6 +307,8 @@
                             parentItemId: itemId,
                             expiresInMinutes: expiry,
                             neverExpires: neverExpires,
+                            maxVideoHeight: qualityHeight,
+                            maxVideoBitrate: qualityBitrate,
                             password: password,
                             maxTotalPlays: maxPlays,
                             maxConcurrentViewers: maxViewers
@@ -360,6 +376,8 @@
                             itemId: itemId,
                             expiresInMinutes: expiry,
                             neverExpires: neverExpires,
+                            maxVideoHeight: qualityHeight,
+                            maxVideoBitrate: qualityBitrate,
                             password: password,
                             maxTotalPlays: maxPlays,
                             maxConcurrentViewers: maxViewers

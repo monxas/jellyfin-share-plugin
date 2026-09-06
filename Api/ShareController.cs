@@ -120,6 +120,8 @@ public class ShareController : ControllerBase
             JellyfinUserId = userId,
             ExpiresInMinutes = request.ExpiresInMinutes ?? config.DefaultExpiryMinutes,
             NeverExpires = request.NeverExpires ?? config.DefaultNeverExpires,
+            MaxVideoHeight = request.MaxVideoHeight,
+            MaxVideoBitrate = request.MaxVideoBitrate,
             Password = request.Password,
             MaxTotalPlays = request.MaxTotalPlays ?? (config.DefaultMaxPlays > 0 ? config.DefaultMaxPlays : null),
             MaxConcurrentViewers = request.MaxConcurrentViewers ?? (config.DefaultMaxConcurrentViewers > 0 ? config.DefaultMaxConcurrentViewers : null)
@@ -354,6 +356,8 @@ public class ShareController : ControllerBase
                 JellyfinUserId = userId,
                 ExpiresInMinutes = request.ExpiresInMinutes ?? config.DefaultExpiryMinutes,
                 NeverExpires = request.NeverExpires ?? config.DefaultNeverExpires,
+                MaxVideoHeight = request.MaxVideoHeight,
+                MaxVideoBitrate = request.MaxVideoBitrate,
                 Password = request.Password,
                 MaxTotalPlays = request.MaxTotalPlays ?? (config.DefaultMaxPlays > 0 ? config.DefaultMaxPlays : null),
                 MaxConcurrentViewers = request.MaxConcurrentViewers ?? (config.DefaultMaxConcurrentViewers > 0 ? config.DefaultMaxConcurrentViewers : null)
@@ -438,6 +442,17 @@ public class CreateShareApiRequest
     public bool? NeverExpires { get; set; }
 
     /// <summary>
+    /// Gets or sets the maximum picture height for this share (720 for 720p).
+    /// Null or 0 means the quality of the source.
+    /// </summary>
+    public int? MaxVideoHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum transcode bitrate for this share, in bits per second.
+    /// </summary>
+    public int? MaxVideoBitrate { get; set; }
+
+    /// <summary>
     /// Gets or sets the optional password.
     /// </summary>
     public string? Password { get; set; }
@@ -475,6 +490,17 @@ public class CreateBatchShareRequest
     /// an explicit false must be able to override a default of true.
     /// </summary>
     public bool? NeverExpires { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum picture height for this share (720 for 720p).
+    /// Null or 0 means the quality of the source.
+    /// </summary>
+    public int? MaxVideoHeight { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum transcode bitrate for this share, in bits per second.
+    /// </summary>
+    public int? MaxVideoBitrate { get; set; }
 
     /// <summary>
     /// Gets or sets the optional password (same for all shares).
