@@ -50,6 +50,41 @@
         return `${days}d left`;
     }
 
+    // Renders the single-share result into the shared result box. The batch branch
+    // overwrites the same box with its own list, so this has to rebuild the markup
+    // and re-attach its listeners rather than assume they survived.
+    function renderSingleResult(resultDiv, publicUrl) {
+        resultDiv.innerHTML = `
+            <div class="jfshare-success-header">
+                <span class="material-icons">check_circle</span>
+                <strong>Share link created!</strong>
+            </div>
+            <div class="jfshare-url-row">
+                <input type="text" id="shareUrl" class="jfshare-url" readonly />
+                <button id="copyShareUrl" class="jfshare-copy" title="Copy">
+                    <span class="material-icons">content_copy</span>
+                </button>
+            </div>
+            <div class="jfshare-qr-container">
+                <div class="jfshare-qr">
+                    <img id="shareQrCode" src="" alt="QR Code" />
+                </div>
+            </div>
+        `;
+        resultDiv.querySelector('#shareUrl').value = publicUrl;
+        resultDiv.querySelector('#shareQrCode').src = QRCode.generate(publicUrl, 150);
+        resultDiv.querySelector('#copyShareUrl').addEventListener('click', () => {
+            const urlInput = resultDiv.querySelector('#shareUrl');
+            urlInput.select();
+            navigator.clipboard.writeText(urlInput.value).then(() => {
+                const copyBtn = resultDiv.querySelector('#copyShareUrl');
+                copyBtn.innerHTML = '<span class="material-icons">check</span>';
+                setTimeout(() => { copyBtn.innerHTML = '<span class="material-icons">content_copy</span>'; }, 2000);
+            });
+        });
+        resultDiv.style.display = 'block';
+    }
+
     // Common dialog styles
     const commonStyles = `
         .jfshare-dialog { max-width: 600px; width: 95%; border: none; border-radius: 8px; padding: 0; background: #202020; color: #fff; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
@@ -171,23 +206,9 @@
                     <div class="jfshare-hint">0 = unlimited</div>
                 </div>
 
-                <div id="shareResult" class="jfshare-success" style="display: none;">
-                    <div class="jfshare-success-header">
-                        <span class="material-icons">check_circle</span>
-                        <strong>Share link created!</strong>
-                    </div>
-                    <div class="jfshare-url-row">
-                        <input type="text" id="shareUrl" class="jfshare-url" readonly />
-                        <button id="copyShareUrl" class="jfshare-copy" title="Copy">
-                            <span class="material-icons">content_copy</span>
-                        </button>
-                    </div>
-                    <div class="jfshare-qr-container">
-                        <div class="jfshare-qr">
-                            <img id="shareQrCode" src="" alt="QR Code" />
-                        </div>
-                    </div>
-                </div>
+                <!-- Filled by renderSingleResult or the batch branch. Both replace the
+                     whole block, so neither may rely on markup the other left behind. -->
+                <div id="shareResult" class="jfshare-success" style="display: none;"></div>
 
                 <div id="shareError" class="jfshare-error" style="display: none;"></div>
 
@@ -331,9 +352,7 @@
                     const publicUrl = response.PublicUrl || response.publicUrl;
 
                     if (publicUrl) {
-                        dlg.querySelector('#shareUrl').value = publicUrl;
-                        dlg.querySelector('#shareQrCode').src = QRCode.generate(publicUrl, 150);
-                        resultDiv.style.display = 'block';
+                        renderSingleResult(resultDiv, publicUrl);
                         btn.textContent = 'Create Another';
                         btn.disabled = false;
                     } else {
@@ -346,17 +365,6 @@
                 btn.textContent = 'Create Share Link';
                 btn.disabled = false;
             }
-        });
-
-        // Handle copy
-        dlg.querySelector('#copyShareUrl').addEventListener('click', () => {
-            const urlInput = dlg.querySelector('#shareUrl');
-            urlInput.select();
-            navigator.clipboard.writeText(urlInput.value).then(() => {
-                const btn = dlg.querySelector('#copyShareUrl');
-                btn.innerHTML = '<span class="material-icons">check</span>';
-                setTimeout(() => { btn.innerHTML = '<span class="material-icons">content_copy</span>'; }, 2000);
-            });
         });
 
         dlg.showModal();
@@ -679,17 +687,28 @@
     }
 
     // Add share button to item details
-    function addShareButton() {
-        // Check if button already exists
-        if (document.querySelector('.btnShare')) return;
+    // Jellyfin keeps previously visited views in the DOM, just hidden. Querying the
+    // document globally therefore finds the *old* page's button row - which is why the
+    // button appeared only on the first detail page visited (usually the Series) and
+    // never again on a Season or Episode page.
+    function findVisibleButtonContainer() {
+        const candidates = document.querySelectorAll(
+            '.mainDetailButtons, .detailButtons, .itemDetailButtons');
+        for (const el of candidates) {
+            // offsetParent is null for anything display:none, including hidden views
+            if (el.offsetParent !== null) return el;
+        }
+        return null;
+    }
 
-        // Find the buttons container - try multiple selectors for different Jellyfin versions
-        const btnContainer = document.querySelector('.mainDetailButtons') ||
-                            document.querySelector('.detailButtons') ||
-                            document.querySelector('.itemDetailButtons');
+    function addShareButton() {
+        const btnContainer = findVisibleButtonContainer();
         if (!btnContainer) {
             return;
         }
+
+        // Deduplicate within this row, not across the whole document
+        if (btnContainer.querySelector('.btnShare')) return;
 
         // Get item info from page
         const itemId = getItemIdFromPage();
@@ -702,19 +721,6 @@
                         document.querySelector('h1')?.textContent ||
                         'this item';
 
-        // Try to determine item type from the page
-        let itemType = 'Movie';
-        const itemTypeEl = document.querySelector('.itemMiscInfo-primary');
-        if (itemTypeEl) {
-            const text = itemTypeEl.textContent.toLowerCase();
-            if (text.includes('series') || document.querySelector('.seasons')) {
-                itemType = 'Series';
-            } else if (text.includes('season')) {
-                itemType = 'Season';
-            } else if (text.includes('episode')) {
-                itemType = 'Episode';
-            }
-        }
 
         // Create share button matching Jellyfin's style
         const shareBtn = document.createElement('button');
@@ -728,10 +734,20 @@
             </div>
         `;
 
-        shareBtn.addEventListener('click', (e) => {
+        shareBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            showShareDialog(itemId, itemName, itemType);
+            // Ask the server for the item type instead of scraping the page. The old
+            // approach matched English words in .itemMiscInfo-primary, so it silently
+            // fell back to "Movie" on any non-English UI and on pages that do not
+            // render that element at all.
+            let item = null;
+            try {
+                item = await ApiClient.getItem(ApiClient.getCurrentUserId(), itemId);
+            } catch (err) {
+                console.warn('Jellyfin Share: could not resolve item type', err);
+            }
+            showShareDialog(itemId, item?.Name || itemName, item?.Type || 'Movie');
         });
 
         // Insert before the "More" button if it exists, otherwise append
