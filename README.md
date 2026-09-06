@@ -28,9 +28,12 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 ## Configuration
 
 1. Go to **Dashboard → Plugins → Jellyfin Share**
-2. Enter your backend URL (e.g., `http://localhost:8097` or `https://share.yourdomain.com`)
+2. Enter your backend URL (e.g., `http://localhost:8097` or `https://share.yourdomain.com`).
+   This is how *this server* reaches the backend, which behind Docker or a reverse
+   proxy is not the address a viewer opens - the backend reports that one itself.
 3. Enter your backend API key
-4. Configure default share settings
+4. Configure the defaults the share dialog starts with: expiry in days, whether
+   shares never expire by default, max plays and max concurrent viewers
 5. Click **Save**
 6. Click **Test Connection** to verify
 
@@ -78,7 +81,11 @@ one starts working again the script loads twice.
 1. Navigate to any movie or episode detail page
 2. Click the **Share** button in the action buttons row
 3. Configure share options:
-   - **Expiry time**: How long the link remains valid
+   - **Share type** (series and seasons only): share the item itself, or create one
+     link per season / per episode in a single step
+   - **Expires in (days)**, or **Never expires** to create a link without a deadline
+   - **Quality**: Original, 1080p, 720p or 480p. A cap only ever lowers quality;
+     it never raises it above the source
    - **Password**: Optional password protection
    - **Max plays**: Limit total number of plays (0 = unlimited)
    - **Max concurrent viewers**: Limit simultaneous viewers (0 = unlimited)
@@ -89,8 +96,15 @@ one starts working again the script loads twice.
 
 The plugin exposes these endpoints (authenticated):
 
-- `GET /plugins/share/config` - Get plugin configuration
-- `POST /plugins/share/create` - Create a new share
+- `GET /plugins/share/config` - Get plugin configuration and defaults
+- `POST /plugins/share/create` - Create a share for one item
+- `POST /plugins/share/batch` - Create one share per child of a season or series
+- `GET /plugins/share/list` - List the calling user's own shares
+- `POST /plugins/share/revoke/{shareId}` - Revoke one of the caller's shares
+- `GET /plugins/share/analytics/{shareId}` - Statistics for one of the caller's shares
+
+A user can only share items their own account is allowed to see, and can only
+revoke or inspect shares they created themselves.
 
 ## Building from Source
 
@@ -102,7 +116,7 @@ cd jellyfin-share-plugin
 # Build
 dotnet build -c Release
 
-# The DLL will be in bin/Release/net8.0/
+# The DLL will be in bin/Release/net9.0/
 ```
 
 ## Troubleshooting
@@ -110,8 +124,14 @@ dotnet build -c Release
 ### Share button doesn't appear
 
 1. Verify the plugin is installed and enabled in Dashboard → Plugins
-2. Check that the client script is loaded (Browser DevTools → Network → search for "client.js")
-3. Make sure you've added the script tag to branding settings
+2. Check the startup log for the `IndexPatcher` line quoted under
+   [Enabling the Share Button](#enabling-the-share-button) - a missing write
+   permission on `web/` is the usual cause
+3. Check that the client script loads (Browser DevTools → Network → "client.js").
+   It is cached for a day and keyed to the plugin version, so reload with a hard
+   refresh after an update
+4. Do not add the script tag to branding settings - that is the legacy workaround
+   this plugin replaced, and it loads the script twice
 
 ### "Plugin not configured" error
 
