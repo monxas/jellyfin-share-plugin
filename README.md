@@ -4,7 +4,10 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 
 ## Requirements
 
-- Jellyfin 10.11 or later (built against the 10.11 ABI / .NET 9)
+- Jellyfin 12.0 or later (built against the 12.1 ABI / .NET 10)
+- For Jellyfin 10.11 use the 1.x line instead — a 2.x build will not load on it.
+  The catalogue picks the right one automatically: Jellyfin only offers versions
+  whose `targetAbi` it satisfies.
 - [Jellyfin Share Backend](https://github.com/monxas/jellyfin-share-backend) running and configured
 
 ## Installation
@@ -102,7 +105,7 @@ cd jellyfin-share-plugin
 # Build
 dotnet build -c Release
 
-# The DLL will be in bin/Release/net8.0/
+# The DLL will be in bin/Release/net10.0/
 ```
 
 ## Troubleshooting
