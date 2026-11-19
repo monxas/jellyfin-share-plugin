@@ -29,11 +29,6 @@ public class ShareService
 {
     private readonly ILogger<ShareService> _logger;
 
-    /// <summary>
-    /// Gets a value indicating whether the last analytics call was refused because
-    /// the share belongs to another user.
-    /// </summary>
-    public bool Forbidden { get; private set; }
     private readonly HttpClient _httpClient;
 
     /// <summary>
@@ -186,14 +181,14 @@ public class ShareService
     /// </summary>
     /// <param name="shareId">The share ID.</param>
     /// <param name="jellyfinUserId">Owner the query is scoped to.</param>
-    /// <returns>Analytics data.</returns>
-    public async Task<ShareAnalytics?> GetShareAnalyticsAsync(string shareId, string jellyfinUserId)
+    /// <returns>The outcome and, when it is <see cref="ShareActionResult.Ok"/>, the analytics data.</returns>
+    public async Task<(ShareActionResult Result, ShareAnalytics? Analytics)> GetShareAnalyticsAsync(string shareId, string jellyfinUserId)
     {
         var config = Plugin.Instance?.Configuration;
         if (config == null || string.IsNullOrEmpty(config.BackendUrl) || string.IsNullOrEmpty(config.BackendApiKey))
         {
             _logger.LogError("Plugin not configured");
-            return null;
+            return (ShareActionResult.Failed, null);
         }
 
         try
@@ -210,20 +205,22 @@ public class ShareService
             {
                 var error = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Failed to get analytics: {StatusCode} - {Error}", response.StatusCode, error);
-                Forbidden = response.StatusCode == System.Net.HttpStatusCode.Forbidden;
-                return null;
+                return (response.StatusCode == System.Net.HttpStatusCode.Forbidden
+                    ? ShareActionResult.Forbidden
+                    : ShareActionResult.Failed, null);
             }
 
             var content = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<ShareAnalytics>(content, new JsonSerializerOptions
+            var analytics = JsonSerializer.Deserialize<ShareAnalytics>(content, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
+            return (analytics == null ? ShareActionResult.Failed : ShareActionResult.Ok, analytics);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting analytics");
-            return null;
+            return (ShareActionResult.Failed, null);
         }
     }
 }

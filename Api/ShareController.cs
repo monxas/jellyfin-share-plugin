@@ -220,6 +220,11 @@ public class ShareController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult> RevokeShare(string shareId)
     {
+        if (!Guid.TryParse(shareId, out _))
+        {
+            return BadRequest(new { Error = "Invalid share id" });
+        }
+
         var config = Plugin.Instance?.Configuration;
         if (config == null || string.IsNullOrEmpty(config.BackendUrl) || string.IsNullOrEmpty(config.BackendApiKey))
         {
@@ -257,6 +262,11 @@ public class ShareController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<ShareAnalytics>> GetShareAnalytics(string shareId)
     {
+        if (!Guid.TryParse(shareId, out _))
+        {
+            return BadRequest(new { Error = "Invalid share id" });
+        }
+
         var config = Plugin.Instance?.Configuration;
         if (config == null || string.IsNullOrEmpty(config.BackendUrl) || string.IsNullOrEmpty(config.BackendApiKey))
         {
@@ -269,18 +279,18 @@ public class ShareController : ControllerBase
             return Forbid();
         }
 
-        var result = await _shareService.GetShareAnalyticsAsync(shareId, userId);
-        if (result == null)
+        var (result, analytics) = await _shareService.GetShareAnalyticsAsync(shareId, userId);
+        if (result == ShareActionResult.Forbidden)
         {
-            if (_shareService.Forbidden)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { Error = "This share belongs to another user" });
-            }
+            return StatusCode(StatusCodes.Status403Forbidden, new { Error = "This share belongs to another user" });
+        }
 
+        if (result != ShareActionResult.Ok || analytics == null)
+        {
             return StatusCode(500, new { Error = "Failed to get analytics" });
         }
 
-        return Ok(result);
+        return Ok(analytics);
     }
 
     /// <summary>

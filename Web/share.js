@@ -162,7 +162,7 @@
                 <h3 class="jfshare-title">Share</h3>
             </div>
             <div class="jfshare-content">
-                <p class="jfshare-subtitle">Create a shareable link for <strong>${itemName}</strong></p>
+                <p class="jfshare-subtitle">Create a shareable link for <strong>${escapeHtml(itemName)}</strong></p>
 
                 ${(isSeries || isSeason) ? `
                 <div class="jfshare-field">

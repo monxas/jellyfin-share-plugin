@@ -4,7 +4,7 @@ A Jellyfin plugin that adds a "Share" button to movie and episode detail pages, 
 
 ## Requirements
 
-- Jellyfin 12.0 or later (built against the 12.1 ABI / .NET 10)
+- Jellyfin 12.1 or later (built against the 12.1 ABI / .NET 10)
 - For Jellyfin 10.11 use the 1.x line instead — a 2.x build will not load on it.
   The catalogue picks the right one automatically: Jellyfin only offers versions
   whose `targetAbi` it satisfies.
