@@ -679,17 +679,28 @@
     }
 
     // Add share button to item details
-    function addShareButton() {
-        // Check if button already exists
-        if (document.querySelector('.btnShare')) return;
+    // Jellyfin keeps previously visited views in the DOM, just hidden. Querying the
+    // document globally therefore finds the *old* page's button row - which is why the
+    // button appeared only on the first detail page visited (usually the Series) and
+    // never again on a Season or Episode page.
+    function findVisibleButtonContainer() {
+        const candidates = document.querySelectorAll(
+            '.mainDetailButtons, .detailButtons, .itemDetailButtons');
+        for (const el of candidates) {
+            // offsetParent is null for anything display:none, including hidden views
+            if (el.offsetParent !== null) return el;
+        }
+        return null;
+    }
 
-        // Find the buttons container - try multiple selectors for different Jellyfin versions
-        const btnContainer = document.querySelector('.mainDetailButtons') ||
-                            document.querySelector('.detailButtons') ||
-                            document.querySelector('.itemDetailButtons');
+    function addShareButton() {
+        const btnContainer = findVisibleButtonContainer();
         if (!btnContainer) {
             return;
         }
+
+        // Deduplicate within this row, not across the whole document
+        if (btnContainer.querySelector('.btnShare')) return;
 
         // Get item info from page
         const itemId = getItemIdFromPage();
@@ -702,19 +713,6 @@
                         document.querySelector('h1')?.textContent ||
                         'this item';
 
-        // Try to determine item type from the page
-        let itemType = 'Movie';
-        const itemTypeEl = document.querySelector('.itemMiscInfo-primary');
-        if (itemTypeEl) {
-            const text = itemTypeEl.textContent.toLowerCase();
-            if (text.includes('series') || document.querySelector('.seasons')) {
-                itemType = 'Series';
-            } else if (text.includes('season')) {
-                itemType = 'Season';
-            } else if (text.includes('episode')) {
-                itemType = 'Episode';
-            }
-        }
 
         // Create share button matching Jellyfin's style
         const shareBtn = document.createElement('button');
@@ -728,10 +726,20 @@
             </div>
         `;
 
-        shareBtn.addEventListener('click', (e) => {
+        shareBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            showShareDialog(itemId, itemName, itemType);
+            // Ask the server for the item type instead of scraping the page. The old
+            // approach matched English words in .itemMiscInfo-primary, so it silently
+            // fell back to "Movie" on any non-English UI and on pages that do not
+            // render that element at all.
+            let item = null;
+            try {
+                item = await ApiClient.getItem(ApiClient.getCurrentUserId(), itemId);
+            } catch (err) {
+                console.warn('Jellyfin Share: could not resolve item type', err);
+            }
+            showShareDialog(itemId, item?.Name || itemName, item?.Type || 'Movie');
         });
 
         // Insert before the "More" button if it exists, otherwise append
